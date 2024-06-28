@@ -6,7 +6,7 @@ import { RedisService } from '../redis/redis.service';
 import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { LoginUserVo } from './vo/login-user.vo';
+import { LoginUserVo, UserInfo } from './vo/login-user.vo';
 
 
 
@@ -16,6 +16,48 @@ import { LoginUserVo } from './vo/login-user.vo';
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  // add tokenInfo to vo
+  addVoToken(vo:LoginUserVo):LoginUserVo {
+    vo.accessToken = this.jwtService.sign({
+      userId: vo.userInfo.id,
+      username: vo.userInfo.username,
+      roles: vo.userInfo.roles,
+      permissions: vo.userInfo.permissions
+    }, {
+      expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
+    });
+
+    vo.refreshToken = this.jwtService.sign({
+      userId: vo.userInfo.id
+    }, {
+      expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
+    });
+
+    return vo
+  }
+  /**
+   * @param user 
+   * @returns [token, refreshToken]
+   */
+  generateToken(user: any){
+    const access_token = this.jwtService.sign({
+      userId: user.id,
+      username: user.username,
+      roles: user.roles,
+      permissions: user.permissions
+    }, {
+      expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
+    });
+
+    const refresh_token = this.jwtService.sign({
+      userId: user.id
+    }, {
+      expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
+    });
+
+    return [access_token, refresh_token]
+  }
 
   @Inject(EmailService)
   private emailService: EmailService;
@@ -60,22 +102,9 @@ export class UserController {
   // normal login
   @Post('login')
   async login(@Body() loginInfo: LoginUserDto) {
-    const vo = await this.userService.login(loginInfo, false)
+    let vo = await this.userService.login(loginInfo, false)
     // generate sign token
-    vo.accessToken = this.jwtService.sign({
-      userId: vo.userInfo.id,
-      username: vo.userInfo.username,
-      roles: vo.userInfo.roles,
-      permissions: vo.userInfo.permissions
-    }, {
-      expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
-    });
-
-    vo.refreshToken = this.jwtService.sign({
-      userId: vo.userInfo.id
-    }, {
-      expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
-    });
+    vo = this.addVoToken(vo)
 
     return vo
   }
@@ -83,22 +112,9 @@ export class UserController {
   // admin login
   @Post('admin-login')
   async adminLogin(@Body() loginInfo: LoginUserDto) {
-    const vo = await this.userService.login(loginInfo, true)
+    let vo = await this.userService.login(loginInfo, true)
     // generate sign token
-    vo.accessToken = this.jwtService.sign({
-      userId: vo.userInfo.id,
-      username: vo.userInfo.username,
-      roles: vo.userInfo.roles,
-      permissions: vo.userInfo.permissions
-    }, {
-      expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
-    });
-
-    vo.refreshToken = this.jwtService.sign({
-      userId: vo.userInfo.id
-    }, {
-      expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
-    });
+    vo = this.addVoToken(vo)
 
     return vo
   }
@@ -111,20 +127,7 @@ export class UserController {
 
       const user = await this.userService.findUserById(data.userId, false);
       // verify new token 
-      const access_token = this.jwtService.sign({
-        userId: user.id,
-        username: user.username,
-        roles: user.roles,
-        permissions: user.permissions
-      }, {
-        expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
-      });
-
-      const refresh_token = this.jwtService.sign({
-        userId: user.id
-      }, {
-        expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
-      });
+      const [access_token, refresh_token] = this.generateToken(user)
 
       return {
         access_token,
@@ -142,20 +145,7 @@ export class UserController {
 
       const user = await this.userService.findUserById(data.userId, true);
 
-      const access_token = this.jwtService.sign({
-        userId: user.id,
-        username: user.username,
-        roles: user.roles,
-        permissions: user.permissions
-      }, {
-        expiresIn: this.configService.get('jwt_access_token_expires_time') || '30m'
-      });
-
-      const refresh_token = this.jwtService.sign({
-        userId: user.id
-      }, {
-        expiresIn: this.configService.get('jwt_refresh_token_expres_time') || '7d'
-      });
+      const [access_token, refresh_token] = this.generateToken(user)
 
       return {
         access_token,

@@ -1,5 +1,6 @@
-import { Controller, Get, Body, Post } from '@nestjs/common';
+import { Controller, Get, Body, Post, SetMetadata } from '@nestjs/common';
 import { AppService } from './app.service';
+import { RequireLogin, RequirePermission } from './custom.decorator';
 
 @Controller()
 export class AppController {
@@ -9,4 +10,17 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('aaa')
+  @RequireLogin()
+  @RequirePermission('aaa')
+  aaa() {
+      return 'aaa';
+  }
+
+  @Get('bbb')
+  bbb() {
+      return 'bbb';
+  }
+
 }
