@@ -8,6 +8,7 @@ export const  RequirePermission = (...permissions: string[]) => SetMetadata('req
 
 export const UserInfo = createParamDecorator(
   (data: string, ctx: ExecutionContext) => {
+
     const request = ctx.switchToHttp().getRequest<Request>();
 
     if(!request.user) {
