@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { md5 } from 'src/utils';
@@ -270,6 +270,51 @@ export class UserService {
       return '用户信息修改成功';
     }
 }
+
+  async freezeUserById(userId: number) {
+    const foundUser = await this.userRepository.findOneBy({
+      id: userId
+    })
+
+    foundUser.isFrozen = !foundUser.isFrozen
+
+    try {
+      await this.userRepository.save(foundUser)
+      return '冻结/解冻成功'
+    } catch (e) {
+      this.logger.error(e, UserService)
+      return '冻结/解冻失败'
+  }
+}
+
+async findUsers(username: string, nickName: string, email: string, pageNo: number, pageSize: number) {
+  const skipCount = (pageNo - 1) * pageSize;
+
+  const condition: Record<string, any> = {};
+
+  if(username) {
+      condition.username = Like(`%${username}%`);   
+  }
+  if(nickName) {
+      condition.nickName = Like(`%${nickName}%`); 
+  }
+  if(email) {
+      condition.email = Like(`%${email}%`); 
+  }
+
+  const [users, totalCount] = await this.userRepository.findAndCount({
+      select: ['id', 'username', 'nickName', 'email', 'phoneNumber', 'isFrozen', 'headPic', 'createTime'],
+      skip: skipCount,
+      take: pageSize,
+      where: condition
+  });
+
+  return {
+      users,
+      totalCount
+  }
+}
+
 
 
 }
