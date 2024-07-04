@@ -181,6 +181,7 @@ export class UserService {
         id: user.id,
         username: user.username,
         isAdmin: user.isAdmin,
+        email: user.email,
         roles: user.roles.map(item => item.name),
         permissions: user.roles.reduce((arr, item) => {
             item.permissions.forEach(permission => {
@@ -210,7 +211,7 @@ export class UserService {
    * @param pwdDto 
    * @returns 
    */
-  async updatePwdById(userId: number, pwdDto: UpdateUserPasswordDto) {
+  async updatePwdById(pwdDto: UpdateUserPasswordDto) {
     const captcha = await this.redisService.get(`update_pwd_captcha_${pwdDto.email}`)
 
     if(!captcha){
@@ -222,8 +223,12 @@ export class UserService {
     }
 
     const foundUser = await this.userRepository.findOneBy({
-      id: userId
+      username: pwdDto.username
     })
+
+    if(foundUser.email !== pwdDto.email){
+      throw new HttpException('邮箱不正确', HttpStatus.BAD_REQUEST)
+    }
 
     foundUser.password = md5(pwdDto.password)
 

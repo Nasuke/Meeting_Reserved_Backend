@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Inject, Query, UnauthorizedException, DefaultValuePipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Inject, Query, UnauthorizedException, DefaultValuePipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express'
 import { UserService } from './user.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { EmailService } from '../email/email.service';
@@ -13,6 +14,9 @@ import { UpdateUserPasswordDto } from './dto/update-user-pwd.dto';
 import { log } from 'console';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { generateParseIntPipe } from 'src/utils';
+import * as path from 'path';
+import { storage } from 'src/file-storage';
+
 
 
 
@@ -29,6 +33,7 @@ export class UserController {
     vo.accessToken = this.jwtService.sign({
       userId: vo.userInfo.id,
       username: vo.userInfo.username,
+      email: vo.userInfo.email,
       roles: vo.userInfo.roles,
       permissions: vo.userInfo.permissions
     }, {
@@ -51,6 +56,7 @@ export class UserController {
     const access_token = this.jwtService.sign({
       userId: user.id,
       username: user.username,
+      email: user.email,
       roles: user.roles,
       permissions: user.permissions
     }, {
@@ -109,6 +115,7 @@ export class UserController {
   // normal login
   @Post('login')
   async login(@Body() loginInfo: LoginUserDto) {
+    
     let vo = await this.userService.login(loginInfo, false)
     // generate sign token
     vo = this.addVoToken(vo)
@@ -182,9 +189,8 @@ export class UserController {
   }
 
   @Post(['update_pwd', 'admin_update_pwd'])
-  @RequireLogin()
-  async updatePwd(@UserInfo('userId') userId: number, @Body() pwdDto: UpdateUserPasswordDto) {
-    return await this.userService.updatePwdById(userId, pwdDto)
+  async updatePwd( @Body() pwdDto: UpdateUserPasswordDto) {
+    return await this.userService.updatePwdById( pwdDto)
     // return 'success'
   }
 
@@ -202,10 +208,12 @@ export class UserController {
     return '发送成功';
   }
 
+  @RequireLogin()
   @Get('update/captcha')
-  async updateCaptcha(@Query('address') address: string) {
+  async updateCaptcha(@UserInfo('email') address: string) {
       const code = Math.random().toString().slice(2,8);
-  
+      console.log('address', address);
+      
       await this.redisService.set(`update_user_captcha_${address}`, code, 10 * 60);
   
       await this.emailService.sendMail({
@@ -240,6 +248,27 @@ export class UserController {
   ) {
       return await this.userService.findUsers(username, nickName, email, pageNo, pageSize);
   }
-  
+ 
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file', {
+    dest: 'uploads',
+    limits: {
+      fileSize: 1024 * 1024 * 3
+    },
+    storage: storage,
+    fileFilter(req, file, callback) {
+      // type of file
+      const extname = path.extname(file.originalname)
+      if (['.png', '.jpg', '.gif','.jpeg'].includes(extname)){
+        callback(null, true)
+      } else {
+        callback(new BadRequestException('只能上传图片'), false)
+      }
+    },
+  }))
+  uploadFile(@UploadedFile() file: Express.Multer.File) {
+    console.log('file', file);
+    return file.path;
+  }
 
 }

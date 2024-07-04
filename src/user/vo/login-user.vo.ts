@@ -28,5 +28,6 @@ export class LoginUserVo {
   accessToken: string;
 
   refreshToken: string;
+  
 }
 
