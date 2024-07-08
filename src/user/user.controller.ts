@@ -248,7 +248,7 @@ export class UserController {
   ) {
       return await this.userService.findUsers(username, nickName, email, pageNo, pageSize);
   }
- 
+
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', {
     dest: 'uploads',
